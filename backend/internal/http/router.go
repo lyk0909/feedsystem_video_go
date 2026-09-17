@@ -24,6 +24,14 @@ func SetRouter(db *gorm.DB, cache *rediscache.Client, rmq *rabbitmq.RabbitMQ) *g
 	if err := r.SetTrustedProxies(nil); err != nil {
 		log.Printf("SetTrustedProxies failed: %v", err)
 	}
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"service":  "feedsystem_video_go API",
+			"status":   "ok",
+			"health":   "/healthz",
+			"frontend": "http://localhost:5173",
+		})
+	})
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})

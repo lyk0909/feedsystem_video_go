@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 #
 # Multi-stage build for backend API and worker.
 #
@@ -20,9 +19,7 @@ ENV GOPROXY=${GOPROXY} \
 WORKDIR /src/backend
 
 COPY backend/go.mod backend/go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download
+RUN go mod download
 
 FROM deps AS source
 COPY backend/ ./
@@ -30,14 +27,10 @@ COPY backend/ ./
 ENV CGO_ENABLED=0
 
 FROM source AS api-build
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go build -trimpath -ldflags="-s -w" -o /out/api ./cmd
+RUN go build -trimpath -ldflags="-s -w" -o /out/api ./cmd
 
 FROM source AS worker-build
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker
+RUN go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker
 
 FROM alpine:3.21 AS base
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -s /sbin/nologin app

@@ -16,6 +16,33 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const rabbitMQMaxRetries = 6
+
+func connectRabbitMQWithRetry(cfg *config.RabbitMQConfig) (*rabbitmq.RabbitMQ, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= rabbitMQMaxRetries; attempt++ {
+		rmq, err := rabbitmq.NewRabbitMQ(cfg)
+		if err == nil {
+			return rmq, nil
+		}
+		lastErr = err
+
+		if attempt == rabbitMQMaxRetries {
+			break
+		}
+
+		wait := time.Duration(1<<(attempt-1)) * time.Second
+		if wait > 5*time.Second {
+			wait = 5 * time.Second
+		}
+		log.Printf("RabbitMQ unavailable, retrying in %s (%d/%d): %v", wait, attempt, rabbitMQMaxRetries, err)
+		time.Sleep(wait)
+	}
+
+	return nil, lastErr
+}
+
 func main() {
 	// 加载 .env（本地开发）
 	if err := godotenv.Load(); err != nil {
@@ -68,9 +95,9 @@ func main() {
 	}
 
 	// 连接 RabbitMQ (可选，用于消息队列)
-	rmq, err := rabbitmq.NewRabbitMQ(&cfg.RabbitMQ)
+	rmq, err := connectRabbitMQWithRetry(&cfg.RabbitMQ)
 	if err != nil {
-		log.Printf("RabbitMQ config error (disabled): %v", err)
+		log.Printf("RabbitMQ unavailable after retries (MQ disabled): %v", err)
 		rmq = nil
 	} else {
 		defer rmq.Close()
